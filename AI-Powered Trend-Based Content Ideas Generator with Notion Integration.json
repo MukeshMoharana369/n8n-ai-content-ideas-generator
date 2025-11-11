@@ -1,0 +1,348 @@
+{
+  "name": "AI-Powered Trend-Based Content Ideas Generator with Notion Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "Reddit 1",
+              "value": "How it help in growing micro business ",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "Reddit 2",
+              "value": "How it help in growing carriers of student",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "Reddit 3",
+              "value": "secrets tips and trick for use it betterly ",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "6e8d209d-5f9e-4bd1-ac21-b1982d3f31cc",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1248,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Reddit JSON response and extract top-quality post titles\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n\n  if (data?.data?.children) {\n    const posts = data.data.children;\n\n    for (const post of posts) {\n      const postData = post.data;\n\n      // Skip NSFW or low-upvote posts\n      if (postData.over_18 || postData.score < 100) continue;\n\n      results.push({\n        trendName: postData.title.trim(),\n        source: \"Reddit\",\n        category: postData.subreddit || \"General\",\n        upvotes: postData.score,\n        dateAdded: new Date(postData.created_utc * 1000).toISOString(),\n      });\n    }\n  }\n}\n\n// Limit to top 8 trends\nconst uniqueTrends = Array.from(\n  new Map(results.map(obj => [obj.trendName.toLowerCase(), obj])).values()\n).slice(0, 8);\n\nreturn uniqueTrends.map(t => ({ json: t }));\n"
+      },
+      "id": "9ae18744-31e5-44ae-854c-64aa28cdbdf2",
+      "name": "Parse Reddit Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1872,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Workflow Configuration').first().json.notionDatabaseId }}"
+        },
+        "title": "={{ $json.trendName }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Generated Ideas|rich_text",
+              "textContent": "={{ $('Generate Content Ideas with AI').first().json.message.content }}"
+            },
+            {
+              "key": "Source|rich_text",
+              "textContent": "={{ $json.source }}"
+            },
+            {
+              "key": "Category|rich_text",
+              "textContent": "={{ $json.category }}"
+            },
+            {
+              "key": "Date Added|date",
+              "date": "={{ $json.dateAdded }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dfb26d5a-029a-4c01-9e0f-8ad5998dfc4b",
+      "name": "Create Notion Page",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        2416,
+        576
+      ],
+      "credentials": {
+        "notionApi": {
+          "id": "NCdHHTq6bNhlbTxG",
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "b44f5cf1-02e6-46e2-91b2-7d58d56ff098",
+      "name": "Daily Trigger1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        1024,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-pro-preview-03-25",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-pro-preview-03-25"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are an expert content strategist who writes high-engagement post ideas.\n\nGiven the topic below, generate 5 creative content ideas that a marketing creator or business owner could post on LinkedIn, X, or short-form video.\n\nFor each idea, include:\n- A short title (max 10 words)\n- A one-sentence hook\n- Suggested post format (LinkedIn Post / Thread / Reel / Carousel)\n- 1 bullet tip for execution\n\nFormat your response in clean plain text as:"
+            },
+            {
+              "content": "You are an expert content strategist and copywriter who specializes in creating engaging, high-performing post ideas for creators, marketers, and business owners.\n\nYour task:\n- Understand the trend topic provided in each input.\n- Generate practical, catchy, and scroll-stopping content ideas that can work on LinkedIn, X, or short-form videos.\n- Always keep ideas simple, creative, and relevant for modern audiences.\n- Avoid long paragraphs, filler text, or hashtags.\n\nFormat everything neatly, easy to read, no markdown or emojis unless part of the idea.\nKeep tone friendly, confident, and actionable.\n\nIf unsure, create ideas that teach, inspire, or provoke thought around the trend.\n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        2064,
+        576
+      ],
+      "id": "798d879b-5a7a-4281-948f-1c41687421ab",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "fxAroahKzqPetXC8",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1696,
+        560
+      ],
+      "id": "691984d7-6a50-45bd-8d59-a8dfa45c8256",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "subreddit": "AI",
+        "keyword": "={{ $json['Reddit 1'] }}",
+        "limit": 10,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.reddit",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        384
+      ],
+      "id": "2bfe12f9-b34e-478e-a265-aef980a1ce63",
+      "name": "How AI help in growth of small business ",
+      "credentials": {
+        "redditOAuth2Api": {
+          "id": "NieAFy53Jkbz9t3j",
+          "name": "Reddit account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "subreddit": "AI",
+        "keyword": "={{ $json['Reddit 2'] }}",
+        "limit": 10,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.reddit",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        576
+      ],
+      "id": "662a06c1-2b27-499b-bd3a-e0b69be8e1bd",
+      "name": "Use of AI in study ",
+      "credentials": {
+        "redditOAuth2Api": {
+          "id": "NieAFy53Jkbz9t3j",
+          "name": "Reddit account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "subreddit": "AI",
+        "keyword": "={{ $json['Reddit 3'] }}",
+        "limit": 10,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.reddit",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        768
+      ],
+      "id": "5db37960-5f1a-4259-b75d-587c4715726b",
+      "name": "Hidden tricks and tips to use AI in daily life",
+      "credentials": {
+        "redditOAuth2Api": {
+          "id": "NieAFy53Jkbz9t3j",
+          "name": "Reddit account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "How AI help in growth of small business ",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Use of AI in study ",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hidden tricks and tips to use AI in daily life",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Reddit Data": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Create Notion Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Parse Reddit Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "How AI help in growth of small business ": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use of AI in study ": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Hidden tricks and tips to use AI in daily life": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4a989b0a-649f-4551-8b11-1518c7cc06d0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7710ff9f153d410d5b117487f4996b34b2541cd8b5c6e7f9884fa3099093407b"
+  },
+  "id": "1XOXHmAGVs358eoN",
+  "tags": []
+}
